@@ -158,7 +158,7 @@ bot.on('new_chat_members', async (ctx) => {
         } else {
             await ctx.reply(
                 `✨ *بەخێربێیت ${member.first_name}!*\n` +
-                `خۆشی پێ دێنین کە هاتوویت.\n` +
+                `دڵخۆشین بەهاتنت.\n` +
                 `📜 /silent بۆ زانیاری خامۆشی`,
                 { parse_mode: 'Markdown' }
             );
@@ -204,3 +204,4 @@ bot.launch()
 // وەستاندنی ڕێک
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
