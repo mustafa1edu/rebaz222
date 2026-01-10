@@ -1,12 +1,12 @@
 {
   "name": "telegram-group-bot",
-  "version": "4.0.0",
-  "description": "بۆتی تێلێگرام - سیستەمی ڕاستەقینەی جۆینی ناچاری",
+  "version": "5.0.0",
+  "description": "بۆتی تێلێگرام - سیستەمی ڕاستەقینەی جۆینی ناچاری (چەکی کردن)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "backup": "cp verified_users.json verified_users_backup.json"
+    "backup": "cp data/verified_users.json data/verified_users_backup.json"
   },
   "dependencies": {
     "telegraf": "^4.16.3"
