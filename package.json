@@ -1,7 +1,7 @@
 {
   "name": "telegram-group-bot",
-  "version": "6.0.0",
-  "description": "بۆتی تێلێگرام - سیستەمی دوگمەی جۆینی ناچاری",
+  "version": "7.0.0",
+  "description": "بۆتی تێلێگرام - سیستەمی پشکنینی ڕاستەقینەی جۆینی چەناڵ",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
