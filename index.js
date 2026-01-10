@@ -5,7 +5,7 @@ const bot = new Telegraf('8544992144:AAG2fBwQBc7cyHOU6u7gkbzlODA3LtC-qaU');
 // === ڕێکخستنەکان ===
 const CHANNEL_USERNAME = '@RebazAsaadku';
 const CHANNEL_LINK = 'https://t.me/RebazAsaadku';
-const CHANNEL_ID = -1001234567890; // ID ی چەناڵەکەت لێرە بنووسە (ئەمە زۆر گرنگە!)
+const CHANNEL_ID = -1001861873095; // ID ی چەناڵەکەت لێرە بنووسە (ئەمە زۆر گرنگە!)
 const SILENT_START_HOUR = 0;   // 12 شەو
 const SILENT_END_HOUR = 7;     // 7 بەیانی
 const BAN_DURATION = 24 * 60 * 60; // ٢٤ کاتژمێر
@@ -488,3 +488,4 @@ bot.launch()
 // وەستاندنی ڕێک
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
