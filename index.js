@@ -1,6 +1,6 @@
 const { Telegraf, Markup } = require('telegraf');
 
-const bot = new Telegraf('8544992144:AAG2fBwQBc7cyHOU6u7gkbzlODA3LtC-qaU');
+const bot = new Telegraf('8488987568:AAEyqbl5maD3bmiCucLelCOC7StOLWc9PEs');
 
 // === ڕێکخستنەکان ===
 const CHANNEL_USERNAME = '@RebazAsaadku';
@@ -342,3 +342,4 @@ bot.launch()
 // وەستاندنی ڕێک
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
