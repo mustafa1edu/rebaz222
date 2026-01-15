@@ -20,8 +20,18 @@ const silentEndNotifications = new Map();   // گروپ → ڕۆژی دواین 
 function isSilentTime() {
     const now = new Date();
     const utcHour = now.getUTCHours();
-    const localHour = (utcHour + 3) % 24;
+    const localHour = (utcHour + 3) % 24; // +3 بۆ کاتی هەولێر (UTC+3)
+    console.log(`🕒 کاتێکی ئێستا: UTC ${utcHour}:00, هەولێر ${localHour}:00`);
     return localHour >= SILENT_START_HOUR && localHour < SILENT_END_HOUR;
+}
+
+// === پشکنینی کاتی ئێستا ===
+function getCurrentTime() {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const localHour = (utcHour + 3) % 24;
+    const minutes = now.getMinutes();
+    return { localHour, minutes };
 }
 
 // === پشکنین بۆ ئەوەی ئەمڕۆ ئاگاداری نێردراوە یان نا ===
@@ -41,7 +51,7 @@ async function sendSilentStartNotification(chatId) {
     try {
         // پشکنین بکە ئەمڕۆ ئاگاداری نێردراوە یان نا
         if (shouldSendNotification(silentStartNotifications, chatId)) {
-            await bot.telegram.sendMessage(
+            const message = await bot.telegram.sendMessage(
                 chatId,
                 `🔕 *دۆخی خامۆشی دەستی پێکرد!*\n\n` +
                 `⏰ **کاتی خامۆشی:** ١٢ شەو تا ٧ بەیانی\n\n` +
@@ -50,9 +60,13 @@ async function sendSilentStartNotification(chatId) {
             );
             
             console.log(`🔕 ئاگاداری دەستپێکی خامۆشی نێردرا بۆ گروپ: ${chatId} (یەکجار لە ڕۆژێکدا)`);
+            console.log(`📝 IDی پەیام: ${message.message_id}`);
+            return true;
         }
+        return false;
     } catch (error) {
         console.log('❌ هەڵە لە ناردنی ئاگاداری دەستپێکی خامۆشی:', error.message);
+        return false;
     }
 }
 
@@ -61,7 +75,7 @@ async function sendSilentEndNotification(chatId) {
     try {
         // پشکنین بکە ئەمڕۆ ئاگاداری نێردراوە یان نا
         if (shouldSendNotification(silentEndNotifications, chatId)) {
-            await bot.telegram.sendMessage(
+            const message = await bot.telegram.sendMessage(
                 chatId,
                 `🔔 *دۆخی خامۆشی کۆتایی هات!*\n\n` +
                 `⏰ **کاتی خامۆشی تەواو بوو**\n\n` +
@@ -70,9 +84,13 @@ async function sendSilentEndNotification(chatId) {
             );
             
             console.log(`🔔 ئاگاداری کۆتایی خامۆشی نێردرا بۆ گروپ: ${chatId} (یەکجار لە ڕۆژێکدا)`);
+            console.log(`📝 IDی پەیام: ${message.message_id}`);
+            return true;
         }
+        return false;
     } catch (error) {
         console.log('❌ هەڵە لە ناردنی ئاگاداری کۆتایی خامۆشی:', error.message);
+        return false;
     }
 }
 
@@ -130,6 +148,9 @@ function containsLink(text) {
     return linkPatterns.some(pattern => pattern.test(text));
 }
 
+// === لیستی گروپە چالاکەکان ===
+const activeGroups = new Set();
+
 // === چاودێری هەموو نامەکان ===
 bot.on('message', async (ctx) => {
     if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
@@ -141,6 +162,9 @@ bot.on('message', async (ctx) => {
     const text = ctx.message.text || ctx.message.caption || '';
     const username = ctx.from.first_name || 'ناونەزانراو';
     const messageId = ctx.message.message_id;
+    
+    // === تۆمارکردنی گروپەکە وەک چالاک ===
+    activeGroups.add(chatId);
     
     // === چێککردنی کاتی خامۆشی ===
     const silentTime = isSilentTime();
@@ -195,15 +219,58 @@ bot.on('message', async (ctx) => {
     }
 });
 
-// === سیستەمی کاتێکی خۆکار بۆ ئاگاداریە یەکجارەیەکان ===
-// ئێمە تەنها کاتێک ئاگاداری دەنێرین کە نامەیەک لە گروپێکدا ببینین
-// بۆ ئەوەی IDی گروپەکە بزانین
+// === سیستەمی کاتێکی خۆکار ===
+let lastCheckMinute = -1;
+
+setInterval(async () => {
+    try {
+        const now = new Date();
+        const { localHour, minutes } = getCurrentTime();
+        
+        // تۆمارکردنی کات
+        console.log(`⏰ پشکنینی کات: کاتژمێر ${localHour}:${minutes < 10 ? '0' + minutes : minutes}`);
+        
+        // تەنها کاتێک پشکنین بکە کە خولەک بگۆڕێت
+        if (minutes === lastCheckMinute) {
+            return;
+        }
+        
+        lastCheckMinute = minutes;
+        
+        // پشکنین بۆ کاتی ئاگاداریەکان
+        if (minutes === 0) { // تەنها لە سەرەتای کاتژمێردا
+            console.log(`🔄 پشکنینی ئاگاداریە خۆکارەکان... گروپە چالاکەکان: ${activeGroups.size}`);
+            
+            // بۆ هەر گروپێکی چالاک
+            for (const chatId of activeGroups) {
+                try {
+                    if (localHour === SILENT_START_HOUR) {
+                        console.log(`🔕 پشکنین بۆ دەستپێکی خامۆشی بۆ گروپ: ${chatId}`);
+                        await sendSilentStartNotification(chatId);
+                    } else if (localHour === SILENT_END_HOUR) {
+                        console.log(`🔔 پشکنین بۆ کۆتایی خامۆشی بۆ گروپ: ${chatId}`);
+                        await sendSilentEndNotification(chatId);
+                    }
+                } catch (error) {
+                    console.log(`❌ هەڵە لە ناردنی ئاگاداری بۆ گروپ ${chatId}:`, error.message);
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.log('❌ هەڵە لە سیستەمی کاتێکی خۆکار:', error.message);
+    }
+}, 30000); // هەر 30 چرکە جارێک
 
 // === پێشوازی لە نوێیەکان ===
 bot.on('new_chat_members', async (ctx) => {
     try {
         const members = ctx.message.new_chat_members;
         const botInfo = await ctx.telegram.getMe();
+        const chatId = ctx.chat.id;
+        
+        // تۆمارکردنی گروپ
+        activeGroups.add(chatId);
         
         for (const member of members) {
             if (member.id === botInfo.id) {
@@ -213,7 +280,10 @@ bot.on('new_chat_members', async (ctx) => {
                     '1. **پێویستە جۆینی چەناڵ بکەیت** بۆ چاتکردن\n' +
                     '2. **لینک = سڕینەوە** (تەنها ئەدمینەکان)\n' +
                     '3. **دۆخی خامۆشی:** ١٢ شەو - ٧ بەیانی\n\n' +
-                    '⚠️ **تێبینی:** لە کاتی خامۆشیدا نامەکان بەبێ ئاگاداری دەسڕێنرێنەوە!',
+                    `⚠️ **تێبینی:** لە کاتی خامۆشیدا (١٢ شەو - ٧ بەیانی) نامەکان بەبێ ئاگاداری دەسڕێنرێنەوە!\n\n` +
+                    `⏰ **سیستەمی خۆکار:** بۆت خۆکارانە پەیام دەنێرێت لە:\n` +
+                    `• ١٢ شەو: "دۆخی خامۆشی دەستی پێکرد!"\n` +
+                    `• ٧ بەیانی: "دۆخی خامۆشی کۆتایی هات!"`,
                     { parse_mode: 'Markdown' }
                 );
             }
@@ -244,7 +314,10 @@ bot.start(async (ctx) => {
     message += `1. پێویستە جۆینی چەناڵ بکەیت\n`;
     message += `2. لینکەکان تەنها بۆ ئەدمینەکان\n`;
     message += `3. ڕێز لە هاوڕێکانت بگرە\n\n`;
-    message += `🔗 **کەناڵ:** ${CHANNEL_LINK}`;
+    message += `🔗 **کەناڵ:** ${CHANNEL_LINK}\n\n`;
+    message += `⏰ **سیستەمی خۆکار:**\n`;
+    message += `• ١٢ شەو: پەیامی دەستپێکی خامۆشی\n`;
+    message += `• ٧ بەیانی: پەیامی کۆتایی خامۆشی`;
     
     await ctx.reply(message, { 
         parse_mode: 'Markdown',
@@ -252,25 +325,57 @@ bot.start(async (ctx) => {
     });
 });
 
-bot.command('silent_start', async (ctx) => {
+// === فەرمانی تاقیکردنەوە ===
+bot.command('test_silent_start', async (ctx) => {
     if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
-        await sendSilentStartNotification(ctx.chat.id);
+        console.log(`🧪 فەرمانی تاقیکردنەوە: دەستپێکی خامۆشی بۆ گروپ ${ctx.chat.id}`);
+        const sent = await sendSilentStartNotification(ctx.chat.id);
+        if (sent) {
+            await ctx.reply('✅ ئاگاداری دەستپێکی خامۆشی نێردرا!');
+        } else {
+            await ctx.reply('ℹ️ ئەمڕۆ پێشتر ئاگاداری نێردراوە.');
+        }
     }
 });
 
-bot.command('silent_end', async (ctx) => {
+bot.command('test_silent_end', async (ctx) => {
     if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
-        await sendSilentEndNotification(ctx.chat.id);
+        console.log(`🧪 فەرمانی تاقیکردنەوە: کۆتایی خامۆشی بۆ گروپ ${ctx.chat.id}`);
+        const sent = await sendSilentEndNotification(ctx.chat.id);
+        if (sent) {
+            await ctx.reply('✅ ئاگاداری کۆتایی خامۆشی نێردرا!');
+        } else {
+            await ctx.reply('ℹ️ ئەمڕۆ پێشتر ئاگاداری نێردراوە.');
+        }
     }
+});
+
+bot.command('time', async (ctx) => {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const localHour = (utcHour + 3) % 24;
+    const minutes = now.getMinutes();
+    
+    await ctx.reply(
+        `🕒 **کاتی ئێستا:**\n\n` +
+        `• UTC: ${utcHour}:${minutes < 10 ? '0' + minutes : minutes}\n` +
+        `• هەولێر: ${localHour}:${minutes < 10 ? '0' + minutes : minutes}\n\n` +
+        `• دەستپێکی خامۆشی: ${SILENT_START_HOUR}:00\n` +
+        `• کۆتایی خامۆشی: ${SILENT_END_HOUR}:00\n\n` +
+        `• گروپە چالاکەکان: ${activeGroups.size}`,
+        { parse_mode: 'Markdown' }
+    );
 });
 
 bot.command('status', async (ctx) => {
     const silentTime = isSilentTime();
+    const { localHour } = getCurrentTime();
     
     if (silentTime) {
         await ctx.reply(
             `🔕 **دۆخی خامۆشی چالاکە!**\n\n` +
-            `⏰ **کات:** ١٢ شەو - ٧ بەیانی\n\n` +
+            `⏰ **کات:** ١٢ شەو - ٧ بەیانی\n` +
+            `🕒 **کاتی ئێستا:** ${localHour}:00\n\n` +
             `📌 **یاساکان:**\n` +
             `• تەنها ئەدمینەکان دەتوانن بنووسن\n` +
             `• نامەکانی ئەندامان خۆکارانە دەسڕێنرێنەوە`,
@@ -279,7 +384,8 @@ bot.command('status', async (ctx) => {
     } else {
         await ctx.reply(
             `🔔 **دۆخی خامۆشی ناچالاکە!**\n\n` +
-            `✅ **ئێستا دەتوانیت چات بکەیت!**\n\n` +
+            `✅ **ئێستا دەتوانیت چات بکەیت!**\n` +
+            `🕒 **کاتی ئێستا:** ${localHour}:00\n\n` +
             `📌 **یاساکان:**\n` +
             `• پێویستە جۆینی چەناڵی کردبیت\n` +
             `• لینکەکان تەنها بۆ ئەدمینەکان`,
@@ -287,46 +393,6 @@ bot.command('status', async (ctx) => {
         );
     }
 });
-
-// === سیستەمی کاتێکی خۆکار ===
-// بۆ ئاگاداریە یەکجارەیەکان لە کاتی دیاریکراودا
-const activeGroups = new Set(); // تۆمارکردنی گروپە چالاکەکان
-
-bot.on('message', async (ctx) => {
-    // تۆمارکردنی گروپەکە کاتێک نامەیەک تێدا دەبینین
-    if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
-        activeGroups.add(ctx.chat.id);
-    }
-});
-
-// چێکی کاتێکی خۆکار بۆ ناردنی ئاگاداریەکان
-setInterval(async () => {
-    try {
-        const now = new Date();
-        const utcHour = now.getUTCHours();
-        const localHour = (utcHour + 3) % 24;
-        const minutes = now.getMinutes();
-        
-        // تەنها کاتژمێرەکان بچێکە (تەنها کاتژمێر ٠ و ٧)
-        if (minutes !== 0) return;
-        
-        // بۆ هەر گروپێکی چالاک
-        for (const chatId of activeGroups) {
-            try {
-                if (localHour === SILENT_START_HOUR) {
-                    await sendSilentStartNotification(chatId);
-                } else if (localHour === SILENT_END_HOUR) {
-                    await sendSilentEndNotification(chatId);
-                }
-            } catch (error) {
-                console.log(`❌ هەڵە لە ناردنی ئاگاداری بۆ گروپ ${chatId}:`, error.message);
-            }
-        }
-        
-    } catch (error) {
-        console.log('❌ هەڵە لە سیستەمی کاتێکی خۆکار:', error.message);
-    }
-}, 60000); // هەر 1 خولەک جارێک
 
 // === دەستپێکردن ===
 console.log('🚀 بۆت دەستی پێدەکات...');
@@ -350,6 +416,11 @@ bot.launch()
         console.log(`• کاتژمێر ${SILENT_END_HOUR}:00: ئاگاداری یەکجارە بۆ کۆتایی خامۆشی`);
         console.log(`• ئاگاداریەکان لە هەر گروپێکدا دەنێردرێن کە بۆتەکەی تێدایە`);
         console.log(`• لە کاتی خامۆشیدا: نامەکان بەبێ ئاگاداری دەسڕێنرێنەوە`);
+        console.log('\n🔧 **فەرمانەکانی تاقیکردنەوە:**');
+        console.log(`• /test_silent_start - تاقیکردنەوەی ئاگاداری دەستپێکی خامۆشی`);
+        console.log(`• /test_silent_end - تاقیکردنەوەی ئاگاداری کۆتایی خامۆشی`);
+        console.log(`• /time - پیشاندانی کاتی ئێستا`);
+        console.log(`• /status - پیشاندانی دۆخی ئێستا`);
     })
     .catch((err) => {
         console.error('❌ هەڵە:', err.message);
